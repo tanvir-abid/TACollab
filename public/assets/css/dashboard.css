@@ -1,0 +1,413 @@
+:root {
+    --primary-color: rgba(253, 58, 132, 1);
+    --secondary-color: rgba(255, 166, 141, 1);
+    --bg-dark: #1a1a2e;
+    --bg-darker: #0f0f1a;
+    --bg-lighter: #252542;
+    --text-primary: #e0e0e0;
+    --text-secondary: #6b6b8f;
+    --text-muted: #4a4a5e;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: var(--bg-dark);
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 1.5rem;
+}
+
+/* Neumorphic Components */
+.neomorph {
+    background: var(--bg-dark);
+    box-shadow: 8px 8px 16px var(--bg-darker), -8px -8px 16px var(--bg-lighter);
+    border-radius: 1rem;
+}
+
+.neomorph-inset {
+    background: var(--bg-dark);
+    box-shadow: inset 4px 4px 8px var(--bg-darker), inset -4px -4px 8px var(--bg-lighter);
+    border: none;
+    color: var(--text-primary);
+}
+
+.neomorph-inset:focus {
+    outline: none;
+    box-shadow: inset 4px 4px 8px var(--bg-darker), inset -4px -4px 8px var(--bg-lighter);
+}
+
+.neomorph-btn {
+    background: linear-gradient(145deg, #1d1d33, #171729);
+    box-shadow: 6px 6px 12px var(--bg-darker), -6px -6px 12px var(--bg-lighter);
+    transition: all 0.3s ease;
+    border: none;
+    color: white;
+    font-weight: 600;
+}
+
+.neomorph-btn:hover {
+    box-shadow: 4px 4px 8px var(--bg-darker), -4px -4px 8px var(--bg-lighter);
+    background: linear-gradient(145deg, var(--primary-color), var(--secondary-color));
+    transform: translateY(-2px);
+}
+
+.neomorph-btn:active {
+    box-shadow: inset 3px 3px 6px var(--bg-darker), inset -3px -3px 6px var(--bg-lighter);
+    transform: translateY(0);
+}
+
+.neomorph-btn:disabled {
+    background: var(--bg-dark);
+    box-shadow: inset 4px 4px 8px var(--bg-darker), inset -4px -4px 8px var(--bg-lighter);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Gradient Elements */
+.gradient-text {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 700;
+}
+
+.gradient-border {
+    position: relative;
+    padding: 2px;
+    background: linear-gradient(145deg, var(--primary-color), var(--secondary-color));
+    border-radius: 1rem;
+}
+
+.gradient-border-inner {
+    background: var(--bg-dark);
+    border-radius: calc(1rem - 2px);
+    height: 100%;
+    width: 100%;
+}
+
+.gradient-icon {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+}
+
+/* Card Styles */
+.stat-card {
+    background: var(--bg-dark);
+    box-shadow: 6px 6px 12px var(--bg-darker), -6px -6px 12px var(--bg-lighter);
+    border-radius: 0.875rem;
+    padding: 1.25rem;
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+}
+
+.stat-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    background: var(--bg-dark);
+    box-shadow: inset 3px 3px 6px var(--bg-darker), inset -3px -3px 6px var(--bg-lighter);
+}
+
+/* Project Card */
+.project-card {
+    background: var(--bg-dark);
+    box-shadow: inset 3px 3px 6px var(--bg-darker), inset -3px -3px 6px var(--bg-lighter);
+    border-radius: 0.875rem;
+    padding: 1.25rem;
+    transition: all 0.3s ease;
+}
+
+.project-card:hover {
+    box-shadow: inset 2px 2px 4px var(--bg-darker), inset -2px -2px 4px var(--bg-lighter);
+}
+
+/* Badge */
+.badge-owner {
+    background: rgba(253, 58, 132, 0.15);
+    color: var(--primary-color);
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Modal Styles */
+.modal {
+    backdrop-filter: blur(12px);
+}
+
+.modal-content {
+    background: var(--bg-dark);
+    border: none;
+    border-radius: 1.25rem;
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(107, 107, 143, 0.1);
+    padding: 1.5rem;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    border-top: 1px solid rgba(107, 107, 143, 0.1);
+    padding: 1.5rem;
+}
+
+.btn-close {
+    filter: invert(1);
+    opacity: 0.6;
+}
+
+.btn-close:hover {
+    opacity: 1;
+}
+
+/* OTP Input Field */
+.otp-container {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    margin: 1.5rem 0;
+}
+
+.otp-input {
+    width: 3rem;
+    height: 3.5rem;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: var(--bg-dark);
+    box-shadow: inset 4px 4px 8px var(--bg-darker), inset -4px -4px 8px var(--bg-lighter);
+    border: none;
+    border-radius: 0.75rem;
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+}
+
+.otp-input:focus {
+    outline: none;
+    box-shadow: inset 4px 4px 8px var(--bg-darker), inset -4px -4px 8px var(--bg-lighter), 0 0 0 2px var(--primary-color);
+}
+
+.otp-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* Form Elements */
+input.neomorph-inset,
+textarea.neomorph-inset {
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+}
+
+input.neomorph-inset::placeholder,
+textarea.neomorph-inset::placeholder {
+    color: var(--text-secondary);
+}
+
+textarea.neomorph-inset {
+    resize: vertical;
+    min-height: 5rem;
+}
+
+label {
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+/* Activity Item */
+.activity-item {
+    background: var(--bg-dark);
+    box-shadow: inset 3px 3px 6px var(--bg-darker), inset -3px -3px 6px var(--bg-lighter);
+    border-radius: 0.75rem;
+    padding: 0.875rem;
+    transition: all 0.3s ease;
+}
+
+.activity-item:hover {
+    box-shadow: none;
+}
+
+.activity-icon {
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* Pulse Animation */
+.pulse-dot {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Utility Classes */
+.text-muted {
+    color: var(--text-secondary) !important;
+}
+
+.text-muted-dark {
+    color: var(--text-muted) !important;
+}
+
+.text-primary-custom {
+    color: var(--primary-color) !important;
+}
+
+.text-secondary-custom {
+    color: var(--secondary-color) !important;
+}
+
+.bg-primary-subtle {
+    background: rgba(253, 58, 132, 0.15);
+}
+
+.bg-blue-subtle {
+    background: rgba(59, 130, 246, 0.15);
+}
+
+.bg-green-subtle {
+    background: rgba(34, 197, 94, 0.15);
+}
+
+.bg-pink-subtle {
+    background: rgba(255, 166, 141, 0.15);
+}
+
+.text-blue {
+    color: #3b82f6;
+}
+
+.text-green {
+    color: #22c55e;
+}
+
+.text-pink {
+    color: var(--secondary-color);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 992px) {
+    .stat-card {
+        padding: 1rem;
+    }
+    
+    .stat-icon {
+        width: 2.5rem;
+        height: 2.5rem;
+    }
+    
+    .project-card {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 1rem;
+    }
+    
+    .otp-input {
+        width: 2.5rem;
+        height: 3rem;
+        font-size: 1.25rem;
+    }
+    
+    .otp-container {
+        gap: 0.5rem;
+    }
+    
+    .neomorph {
+        border-radius: 0.875rem;
+    }
+    
+    .stat-card {
+        padding: 0.875rem;
+    }
+}
+
+@media (max-width: 576px) {
+    body {
+        padding: 0.75rem;
+    }
+    
+    .gradient-text {
+        font-size: 1.5rem !important;
+    }
+    
+    .stat-card {
+        padding: 0.75rem;
+    }
+    
+    .stat-icon {
+        width: 2.25rem;
+        height: 2.25rem;
+    }
+    
+    .project-card {
+        padding: 0.875rem;
+    }
+    
+    .otp-input {
+        width: 2.25rem;
+        height: 2.75rem;
+        font-size: 1.125rem;
+    }
+    
+    .modal-content {
+        margin: 0.5rem;
+    }
+    
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding: 1rem;
+    }
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-lighter);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
