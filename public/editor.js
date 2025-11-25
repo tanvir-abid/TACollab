@@ -206,6 +206,7 @@ async function loadProject() {
             
             document.getElementById('projectName').textContent = data.name;
             document.getElementById('projectCode').textContent = data.code;
+            document.title = `${data.name} - TACollab Editor | Real-time Collaborative Code Editor`;
             
             // Check if current user is owner (only if currentUser is loaded)
             if (currentUser && currentUser._id) {

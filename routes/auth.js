@@ -16,6 +16,18 @@ router.post('/register', async (req, res) => {
   try {
     const {fullName, username, email, password } = req.body;
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+
+    // Validate password
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+    }
+    
+    const hasLetters = /[a-zA-Z]/.test(password);
+    const hasNumbers = /[0-9]/.test(password);
+    
+    if (!hasLetters || !hasNumbers) {
+      return res.status(400).json({ error: 'Password must contain both letters and numbers' });
+    }
     
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
