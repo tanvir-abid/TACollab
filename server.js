@@ -9,6 +9,10 @@ const authRoutes = require('./routes/auth');
 const projectRoutes = require('./routes/projects');
 const User = require('./models/User');
 const Project = require('./models/Projects');
+const Message = require('./models/Message');
+const messageRoutes = require('./routes/messages');
+const GroupMessage = require('./models/GroupMessage');
+const groupMessageRoutes = require('./routes/groupMessages');
 
 const app = express();
 const server = http.createServer(app);
@@ -54,6 +58,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 // API ROUTES
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/group-messages', groupMessageRoutes);
 
 // ----------------------
 // PAGE ROUTES
@@ -84,6 +90,8 @@ app.get('/editor/:projectId', (req, res) => {
 // SOCKET.IO CONNECTION HANDLER
 // ----------------------
 const projectRooms = new Map(); // projectId -> Set of {socketId, userId, username}
+const onlineUsers = new Map(); // userId -> {username, socketIds: Set}
+
 
 io.on('connection', async (socket) => {
   console.log('New socket connection:', socket.id);
@@ -102,6 +110,21 @@ io.on('connection', async (socket) => {
     socket.disconnect();
     return;
   }
+
+    // Track online user
+  if (!onlineUsers.has(userId)) {
+    onlineUsers.set(userId, {
+      username: user.username,
+      socketIds: new Set()
+    });
+  }
+  onlineUsers.get(userId).socketIds.add(socket.id);
+
+  // Broadcast online users update to all connected clients
+  io.emit('global-users-update', {
+    onlineCount: onlineUsers.size,
+    onlineUserIds: Array.from(onlineUsers.keys())
+  });
 
   console.log(`User ${user.username} connected with socket ${socket.id}`);
 
@@ -212,6 +235,22 @@ io.on('connection', async (socket) => {
   // Disconnect event
   socket.on('disconnect', () => {
     console.log(`Socket ${socket.id} disconnected`);
+
+      // Remove from online users
+  if (userId && onlineUsers.has(userId)) {
+    const userSockets = onlineUsers.get(userId).socketIds;
+    userSockets.delete(socket.id);
+    
+    if (userSockets.size === 0) {
+      onlineUsers.delete(userId);
+    }
+    
+    // Broadcast updated online users
+    io.emit('global-users-update', {
+      onlineCount: onlineUsers.size,
+      onlineUserIds: Array.from(onlineUsers.keys())
+    });
+  }
     
     if (socket.currentProject && socket.currentUser) {
       const projectId = socket.currentProject;
@@ -264,6 +303,101 @@ io.on('connection', async (socket) => {
           room.delete(u);
         }
       });
+    }
+  });
+
+  // Send message
+  socket.on('send-message', async (data) => {
+    const { receiverId, content } = data;
+    
+    try {
+      const message = new Message({
+        sender: userId,
+        receiver: receiverId,
+        content: content.trim()
+      });
+      
+      await message.save();
+      await message.populate('sender', 'username');
+      
+      // Send to receiver if online
+      const receiverSockets = onlineUsers.get(receiverId);
+      if (receiverSockets) {
+        receiverSockets.socketIds.forEach(socketId => {
+          io.to(socketId).emit('receive-message', {
+            _id: message._id,
+            sender: message.sender,
+            content: message.content,
+            createdAt: message.createdAt
+          });
+        });
+      }
+      
+      // Confirm to sender
+      socket.emit('message-sent', {
+        _id: message._id,
+        receiver: receiverId,
+        content: message.content,
+        createdAt: message.createdAt
+      });
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to send message' });
+    }
+  });
+
+  // Mark messages as read
+  socket.on('mark-read', async (data) => {
+    const { senderId } = data;
+    
+    try {
+      await Message.updateMany(
+        { sender: senderId, receiver: userId, read: false },
+        { read: true }
+      );
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+  });
+
+  socket.on('send-group-message', async (data) => {
+    const { projectId, content } = data;
+    
+    try {
+      // Verify user has access
+      const project = await Project.findById(projectId);
+      if (!project) {
+        socket.emit('error', { message: 'Project not found' });
+        return;
+      }
+
+      const hasAccess = project.collaborators.some(c => c._id.toString() === userId);
+      if (!hasAccess) {
+        socket.emit('error', { message: 'Access denied' });
+        return;
+      }
+
+      // Save message
+      const message = new GroupMessage({
+        project: projectId,
+        sender: userId,
+        content: content.trim()
+      });
+      
+      await message.save();
+      await message.populate('sender', 'username');
+      
+      // Broadcast to all users in the project room
+      io.to(projectId).emit('receive-group-message', {
+        _id: message._id,
+        sender: {
+          _id: message.sender._id,
+          username: message.sender.username
+        },
+        content: message.content,
+        createdAt: message.createdAt
+      });
+    } catch (error) {
+      socket.emit('error', { message: 'Failed to send message' });
     }
   });
 });

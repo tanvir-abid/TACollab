@@ -13,6 +13,11 @@ let allCollaborators = [];
 let onlineUsers = [];
 let isOwner = false;
 
+let groupMessages = [];
+let isGroupChatOpen = false;
+let collaboratorColors = new Map(); // userId -> color
+let unreadMessageCount = 0;
+
 const userColors = [
     '#ef4444', '#f59e0b', '#10b981', '#3b82f6', 
     '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'
@@ -64,20 +69,16 @@ projectId = getProjectId();
 
 // Initialize Socket.IO
 function initSocket() {
-    console.log('Initializing Socket.IO connection...');
     socket = io();
 
     socket.on('connect', () => {
-        console.log('Socket connected:', socket.id);
         // Join project only if it's already loaded
         if (projectId && projectData) {
-            console.log('Socket reconnected, rejoining project:', projectId);
             socket.emit('join-project', projectId);
         }
     });
 
     socket.on('users-update', (data) => {
-        console.log('Users update received:', data);
         onlineUsers = data.onlineUsers;
         allCollaborators = data.allCollaborators;
         
@@ -97,14 +98,12 @@ function initSocket() {
     });
 
     socket.on('user-left', (data) => {
-        console.log('User left:', data.user);
         onlineUsers = data.onlineUsers;
         updateCollaboratorsUI();
         removeCursor(data.user.id);
     });
 
     socket.on('remote-code-change', (data) => {
-        console.log('Remote code change:', data);
         if (data.fileId === activeTabId) {
             applyRemoteChange(data);
         }
@@ -123,13 +122,73 @@ function initSocket() {
     });
 
     socket.on('remote-file-switch', (data) => {
-        console.log('Remote user switched file:', data.user.username, 'to file', data.fileId);
-        // You could show a notification here if desired
+        
+        // Find the file name
+        const file = tabs.find(t => t.id === data.fileId);
+        const fileName = file ? file.name : 'a file';
+        
+        showToast(
+            '📁 File Switch',
+            `${data.user.username} switched to ${fileName}`,
+            'info'
+        );
     });
 
     socket.on('removed-from-project', (data) => {
-        alert('You have been removed from this project');
-        window.location.href = '/dashboard';
+        let countdown = 5;
+        
+        // Disable editor
+        editor.setOption('readOnly', true);
+        
+        // Show initial toast
+        showToast(
+            '⚠️ Removed from Project',
+            `You have been removed from this project. Redirecting in ${countdown} seconds...`,
+            'danger'
+        );
+        
+        // Update countdown every second
+        const countdownInterval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                showToast(
+                    '⚠️ Removed from Project',
+                    `You have been removed from this project. Redirecting in ${countdown} seconds...`,
+                    'danger'
+                );
+            } else {
+                clearInterval(countdownInterval);
+                window.location.href = '/dashboard';
+            }
+        }, 1000);
+    });
+
+    // Socket event: receive group message
+    socket.on('receive-group-message', (message) => {
+        groupMessages.push(message);
+        
+        const body = document.getElementById('groupChatBody');
+        const messageEl = createGroupMessageElement(message);
+        body.appendChild(messageEl);
+        body.scrollTop = body.scrollHeight;
+        
+        // Check if chat is closed or minimized
+        // Check if chat is BOTH visible AND expanded (not minimized)
+        const chatHead = document.getElementById('groupChatHead');
+        const isChatOpen = chatHead.style.display !== 'none' && 
+                        !chatHead.classList.contains('minimized');
+
+        // Only increment unread count if message is from another user and chat is NOT fully open
+        if (currentUser && message.sender._id !== currentUser._id && !isChatOpen) {
+            unreadMessageCount++;
+            updateUnreadBadge();
+            playNotificationSound();
+            showToast(
+                '💬 New Message',
+                `${message.sender.username}: ${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}`,
+                'info'
+            );
+        }
     });
 
     socket.on('error', (data) => {
@@ -138,7 +197,7 @@ function initSocket() {
     });
 
     socket.on('disconnect', () => {
-        console.log('Socket disconnected');
+        showToast('⚠️ Disconnected', 'You have been disconnected from the server.', 'warning');
     });
 }
 
@@ -147,11 +206,9 @@ async function getCurrentUser() {
         const res = await fetch('/api/auth/current-user');
         if (res.ok) {
             currentUser = await res.json();
-            console.log('Current user:', currentUser);
         } else {
             console.error('Failed to get current user, status:', res.status);
             const errorText = await res.text();
-            console.error('Error response:', errorText);
         }
     } catch (error) {
         console.error('Failed to get current user:', error);
@@ -159,8 +216,6 @@ async function getCurrentUser() {
 }
 
 async function loadProject() {
-    console.log('=== STARTING PROJECT LOAD ===');
-    console.log('Project ID:', projectId);
     
     if (!projectId) {
         console.error('ERROR: No project ID found in URL');
@@ -173,7 +228,6 @@ async function loadProject() {
     console.log('API URL:', apiUrl);
     
     try {
-        console.log('Fetching project data...');
         const res = await fetch(apiUrl);
         console.log('Response received:', {
             status: res.status,
@@ -182,7 +236,6 @@ async function loadProject() {
         });
         
         const responseText = await res.text();
-        console.log('Raw response (first 500 chars):', responseText.substring(0, 500));
         
         if (responseText.trim().startsWith('<')) {
             console.error('ERROR: Received HTML instead of JSON');
@@ -193,15 +246,12 @@ async function loadProject() {
         let data;
         try {
             data = JSON.parse(responseText);
-            console.log('Successfully parsed JSON:', data);
         } catch (parseError) {
-            console.error('ERROR: Failed to parse response as JSON:', parseError);
-            alert('Invalid response from server.');
+            showToast('⚠️ Error', parseError, 'danger');
             return;
         }
         
         if (res.ok) {
-            console.log('=== PROJECT DATA SUCCESSFULLY LOADED ===');
             projectData = data;
             
             document.getElementById('projectName').textContent = data.name;
@@ -211,24 +261,21 @@ async function loadProject() {
             // Check if current user is owner (only if currentUser is loaded)
             if (currentUser && currentUser._id) {
                 isOwner = data.owner._id === currentUser._id;
-                console.log('Is owner:', isOwner);
             }
             allCollaborators = data.collaborators;
-            console.log('All collaborators:', allCollaborators);
             
             tabs = [];
             tabCounter = 0;
             
             if (data.files && Array.isArray(data.files) && data.files.length > 0) {
-                console.log(`Loading ${data.files.length} files from project...`);
                 data.files.forEach((file, index) => {
                     const id = ++tabCounter;
-                    console.log(`File ${index + 1}:`, {
-                        id,
-                        name: file.name,
-                        language: file.language,
-                        codeLength: file.code?.length || 0
-                    });
+                    // console.log(`File ${index + 1}:`, {
+                    //     id,
+                    //     name: file.name,
+                    //     language: file.language,
+                    //     codeLength: file.code?.length || 0
+                    // });
                     
                     tabs.push({
                         id: id,
@@ -240,35 +287,33 @@ async function loadProject() {
                 
                 renderTabs();
                 switchToTab(tabs[0].id);
-                console.log('=== PROJECT LOAD COMPLETE ===');
+                // Inside loadProject(), after successfully loading project data, add:
+                assignCollaboratorColors();
+                initGroupChat();
             } else {
-                console.log('No files found, creating default tab');
                 createTab('javascript', 'untitled.js', '');
             }
             
             // IMPORTANT: Join the project room after loading project data
             if (socket && socket.connected) {
-                console.log('Emitting join-project event for project:', projectId);
                 socket.emit('join-project', projectId);
             } else {
-                console.error('Socket not connected, cannot join project');
+                showToast('⚠️ Error', 'Socket not connected, cannot join project', 'danger');
             }
             
         } else {
-            console.error('=== API ERROR ===');
-            console.error('Error data:', data);
-            alert('Failed to load project: ' + (data.error || 'Unknown error'));
-            window.location.href = '/dashboard';
+            showToast('⚠️ Error', 'Failed to load project: ' + (data.error || 'Unknown error'), 'danger');
+
+            setTimeout(() => {
+                window.location.href = '/dashboard';
+            }, 3000);
         }
     } catch (error) {
-        console.error('=== EXCEPTION DURING PROJECT LOAD ===');
-        console.error('Error:', error);
-        alert('Failed to load project: ' + error.message);
+        showToast('⚠️ Error', 'Failed to load project: ' + error.message, 'danger');
     }
 }
 
 function initEditor() {
-    console.log('Initializing CodeMirror editor...');
     editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
         mode: 'javascript',
         theme: 'monokai',
@@ -335,8 +380,6 @@ function initEditor() {
             }, 100);
         }
     });
-
-    console.log('CodeMirror editor initialized');
 }
 
 function applyRemoteChange(data) {
@@ -512,7 +555,6 @@ function closeTab(id) {
 }
 
 async function saveProject() {
-    console.log('=== SAVING PROJECT ===');
     const files = tabs.map(tab => ({
         name: tab.name,
         language: tab.language,
@@ -527,30 +569,22 @@ async function saveProject() {
         });
 
         if (res.ok) {
-            console.log('Project saved successfully');
+            showToast("Success", "Project saved successfully!", "success");
             const btn = document.getElementById('saveBtn');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fa-solid fa-check"></i> Saved!';
             setTimeout(() => btn.innerHTML = originalText, 2000);
         } else {
             const errorData = await res.text();
-            console.error('Save failed:', errorData);
-            alert('Failed to save project');
+            showToast('Error', 'Failed to save project: '+ errorData, 'danger');
         }
     } catch (error) {
-        console.error('Exception during save:', error);
-        alert('Failed to save project');
+        showToast('Error', 'Failed to save project: ' + error, 'danger');
     }
 }
 
 // Collaborators UI
 function updateCollaboratorsUI() {
-    console.log('=== UPDATING COLLABORATORS UI ===');
-    console.log('All collaborators:', allCollaborators);
-    console.log('Online users:', onlineUsers);
-    console.log('Is owner:', isOwner);
-    console.log('Current user:', currentUser);
-    
     const dropdown = document.getElementById('collaboratorsDropdown');
     const countEl = document.getElementById('collaboratorCount');
     
@@ -567,16 +601,14 @@ function updateCollaboratorsUI() {
     countEl.textContent = allCollaborators.length;
     dropdown.innerHTML = '';
     
-    console.log(`Creating UI for ${allCollaborators.length} collaborators...`);
     
     allCollaborators.forEach((collaborator, index) => {
-        console.log(`Collaborator ${index + 1}:`, collaborator);
         
         const isOnline = onlineUsers.some(u => u.userId === collaborator._id);
         const isCollaboratorOwner = projectData && projectData.owner && projectData.owner._id === collaborator._id;
         const canRemove = isOwner && !isCollaboratorOwner && currentUser && currentUser._id !== collaborator._id;
         
-        console.log(`  - Online: ${isOnline}, Is owner: ${isCollaboratorOwner}, Can remove: ${canRemove}`);
+        //console.log(`  - Online: ${isOnline}, Is owner: ${isCollaboratorOwner}, Can remove: ${canRemove}`);
         
         const item = document.createElement('div');
         item.className = 'collaborator-item';
@@ -590,8 +622,6 @@ function updateCollaboratorsUI() {
         
         dropdown.appendChild(item);
     });
-    
-    console.log('Collaborators UI updated successfully');
     
     // Add event listeners to remove buttons
     dropdown.querySelectorAll('.remove-btn').forEach(btn => {
@@ -614,7 +644,6 @@ async function removeCollaborator(userId) {
         
         if (res.ok) {
             const data = await res.json();
-            console.log('Collaborator removed:', data);
             
             // Notify socket to disconnect the user
             socket.emit('collaborator-removed', {
@@ -920,19 +949,192 @@ document.getElementById('downloadBtn').addEventListener('click', function() {
 });
 
 // Initialize everything
-console.log('=== SCRIPT LOADED ===');
-console.log('Initializing editor...');
 initEditor();
 
 // Properly wait for current user before loading project
-console.log('Getting current user...');
 getCurrentUser().then(() => {
-    console.log('Current user loaded:', currentUser);
-    console.log('Initializing socket...');
     initSocket();
-    console.log('Loading project...');
     return loadProject();
 }).catch(error => {
-    console.error('Initialization error:', error);
-    alert('Failed to initialize editor: ' + error.message);
+    showToast('Failed to initialize editor: ' + error.message);
 });
+
+// Assign colors to collaborators
+function assignCollaboratorColors() {
+    collaboratorColors.clear();
+    allCollaborators.forEach((collab, index) => {
+        collaboratorColors.set(collab._id, userColors[index % userColors.length]);
+    });
+}
+
+// Initialize group chat
+function initGroupChat() {
+    const chatHead = document.getElementById('groupChatHead');
+    chatHead.style.display = 'flex';
+    
+    // Load previous messages
+    loadGroupMessages();
+    
+    // Close chat
+    document.getElementById('closeGroupChat').addEventListener('click', (e) => {
+        e.stopPropagation();
+        isGroupChatOpen = false;
+        chatHead.style.display = 'none';
+    });
+    
+    // Click header to toggle minimize
+    document.getElementById('groupChatHeader').addEventListener('click', () => {
+        // chatHead.classList.toggle('minimized');
+                const chatHead = document.getElementById('groupChatHead');
+        const wasMinimized = chatHead.classList.contains('minimized');
+        chatHead.classList.toggle('minimized');
+        
+        // Clear badge when expanding
+        if (wasMinimized) {
+            clearUnreadMessages();
+        }
+    });
+    
+    // Send message
+    document.getElementById('groupChatForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        sendGroupMessage();
+    });
+}
+
+// Load previous messages
+async function loadGroupMessages() {
+    try {
+        const res = await fetch(`/api/group-messages/${projectId}`);
+        if (res.ok) {
+            groupMessages = await res.json();
+            renderGroupMessages();
+        }
+    } catch (error) {
+        console.error('Failed to load group messages:', error);
+    }
+}
+
+// Send group message
+function sendGroupMessage() {
+    const input = document.getElementById('groupChatInput');
+    const content = input.value.trim();
+    
+    if (!content || !socket) return;
+    
+    socket.emit('send-group-message', {
+        projectId: projectId,
+        content: content
+    });
+    
+    input.value = '';
+}
+
+// Render group messages
+function renderGroupMessages() {
+    const body = document.getElementById('groupChatBody');
+    body.innerHTML = '';
+    
+    groupMessages.forEach(message => {
+        const messageEl = createGroupMessageElement(message);
+        body.appendChild(messageEl);
+    });
+    
+    // Scroll to bottom
+    body.scrollTop = body.scrollHeight;
+}
+
+// Create message element
+function createGroupMessageElement(message) {
+    const isOwn = currentUser && message.sender._id === currentUser._id;
+    const senderColor = collaboratorColors.get(message.sender._id) || '#888';
+    
+    const messageEl = document.createElement('div');
+    messageEl.className = 'group-message' + (isOwn ? ' own' : '');
+    
+    const time = new Date(message.createdAt).toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+    
+    messageEl.innerHTML = `
+        ${!isOwn ? `
+            <div class="group-message-sender" style="color: ${senderColor}">
+                <span class="sender-dot" style="background: ${senderColor}"></span>
+                ${message.sender.username}
+            </div>
+        ` : ''}
+        <div class="group-message-content" style="border-left-color: ${senderColor}">
+            ${escapeHtml(message.content)}
+        </div>
+        <div class="group-message-time">${time}</div>
+    `;
+    
+    return messageEl;
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+document.getElementById('toggleGroupChat').addEventListener('click', () => {
+    const chatHead = document.getElementById('groupChatHead');
+    isGroupChatOpen = !isGroupChatOpen;
+    
+    if (isGroupChatOpen) {
+        chatHead.style.display = 'flex';
+        chatHead.classList.remove('minimized');
+        clearUnreadMessages();
+    } else {
+        chatHead.style.display = 'none';
+    }
+});
+
+// Show Bootstrap Toast
+function showToast(title, message, type = 'info') {
+    const toastEl = document.getElementById('notificationToast');
+    const toastTitle = document.getElementById('toastTitle');
+    const toastBody = document.getElementById('toastBody');
+    const toastHeader = toastEl.querySelector('.toast-header');
+    
+    // Set colors based on type
+    const colors = {
+        'info': 'bg-primary text-white',
+        'success': 'bg-success text-white',
+        'warning': 'bg-warning text-dark',
+        'danger': 'bg-danger text-white'
+    };
+    
+    toastHeader.className = 'toast-header ' + (colors[type] || colors.info);
+    toastTitle.textContent = title;
+    toastBody.textContent = message;
+    
+    const toast = new bootstrap.Toast(toastEl, { autohide: true, delay: 4000 });
+    toast.show();
+}
+
+// Play notification sound
+function playNotificationSound() {
+    const audio = document.getElementById('notificationSound');
+    audio.play().catch(err => console.log('Audio play failed:', err));
+}
+
+// Update unread badge
+function updateUnreadBadge() {
+    const badge = document.getElementById('unreadBadge');
+    if (unreadMessageCount > 0) {
+        badge.textContent = unreadMessageCount;
+        badge.style.display = 'inline-block';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+// Clear unread count when chat is opened
+function clearUnreadMessages() {
+    unreadMessageCount = 0;
+    updateUnreadBadge();
+}
