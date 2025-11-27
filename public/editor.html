@@ -65,6 +65,10 @@
                     <!-- Collaborators will be populated here -->
                 </div>
             </div>
+            <button class="btn position-relative" id="toggleGroupChat" title="Group Chat">
+                <i class="fa-solid fa-comments"></i> <span class="d-none d-md-inline">Chat</span>
+                
+            </button>
             
             <button id="saveBtn" class="btn btn-primary">
                 <i class="fa-solid fa-save"></i> <span class="d-none d-sm-inline">Save</span>
@@ -224,6 +228,60 @@
     </div>
 
 
+    <!-- Group Chat Head -->
+<div class="group-chat-head minimized" id="groupChatHead" style="display: none;">
+    <div class="group-chat-header" id="groupChatHeader">
+        <div class="group-chat-title">
+            <i class="fa-solid fa-users"></i>
+            <span>Group Chat</span>
+            <span id="unreadBadge" class="position-absolute top-0 start-0 translate-middle badge rounded-pill bg-danger" style="display: none;">
+                    0
+                </span>
+        </div>
+        <div class="chat-actions">
+            <button class="chat-action-btn" id="closeGroupChat" title="Close">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+    </div>
+    <div class="group-chat-body" id="groupChatBody">
+        <!-- Messages will be populated here -->
+    </div>
+    <div class="group-chat-footer">
+        <form class="group-chat-form" id="groupChatForm">
+            <input 
+                type="text" 
+                class="group-chat-input" 
+                id="groupChatInput" 
+                placeholder="Type a message..."
+                autocomplete="off"
+                maxlength="500"
+            >
+            <button type="submit" class="group-chat-send">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+    <div id="notificationToast" class="toast text-bg-dark" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto" id="toastTitle">Notification</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toastBody">
+            <!-- Toast message here -->
+        </div>
+    </div>
+</div>
+
+<!-- Notification Sound -->
+<audio id="notificationSound" preload="auto">
+    <source src="https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3" type="audio/mpeg">
+</audio>
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
@@ -250,6 +308,6 @@
     <script src="/socket.io/socket.io.js"></script>
     
     <!-- Editor Script -->
-    <script src="/editor.js"></script>
+    <script src="/assets/js/editor.js"></script>
 </body>
 </html>
