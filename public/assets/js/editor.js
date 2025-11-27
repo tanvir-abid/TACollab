@@ -225,21 +225,14 @@ async function loadProject() {
     }
     
     const apiUrl = `/api/projects/${projectId}`;
-    console.log('API URL:', apiUrl);
     
     try {
         const res = await fetch(apiUrl);
-        console.log('Response received:', {
-            status: res.status,
-            statusText: res.statusText,
-            ok: res.ok
-        });
-        
         const responseText = await res.text();
         
         if (responseText.trim().startsWith('<')) {
             console.error('ERROR: Received HTML instead of JSON');
-            alert('Server returned an error page. Check console for details.');
+            showToast('⚠️ Error', 'Server returned an error page. Check console for details.', 'danger');
             return;
         }
         
